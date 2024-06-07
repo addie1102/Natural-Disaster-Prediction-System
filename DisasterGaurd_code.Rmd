@@ -1,0 +1,434 @@
+---
+title: "DisasterGaurd"
+author: "Aditi Anand (20MIA1123)"
+date: '2023-11-14'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Part I Earthquakes
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+# Load Earthquake Dataset
+earthquake_data <- read.csv('/Users/aditi/Documents/DisasterGaurd/earthquakeData.csv')
+
+# Explore the Dataset
+cat("Earthquake Dataset Overview:\n")
+str(earthquake_data)
+cat("\nSample Data:\n")
+head(earthquake_data)
+
+```
+Data Cleaning and Preprocessing for Earthquake Dataset
+
+```{r}
+# Convert Date and Time to DateTime objects
+earthquake_data$Date <- as.Date(earthquake_data$Date, format="%m/%d/%Y")
+earthquake_data$Time <- as.POSIXct(earthquake_data$Time, format="%H:%M:%S")
+
+# Explore the updated Dataset
+cat("Updated Earthquake Dataset Overview:\n")
+str(earthquake_data)
+cat("\nSample Data:\n")
+head(earthquake_data)
+```
+EDA and Viz
+```{r}
+summary(earthquake_data)
+```
+```{r}
+hist(earthquake_data$Magnitude, main = "Distribution of Earthquake Magnitudes", xlab = "Magnitude")
+```
+```{r}
+plot(earthquake_data$Longitude, earthquake_data$Latitude, main = "Earthquake Locations", xlab = "Longitude", ylab = "Latitude")
+```
+```{r}
+earthquake_data$Date <- as.Date(earthquake_data$Date, format = "%m/%d/%Y")
+plot(earthquake_data$Date, earthquake_data$Magnitude, type = "l", main = "Earthquake Magnitudes Over Time", xlab = "Date", ylab = "Magnitude")
+```
+```{r}
+boxplot(Magnitude ~ Type, data = earthquake_data, main = "Magnitude Distribution by Earthquake Type", xlab = "Type", ylab = "Magnitude")
+```
+```{r}
+cor_matrix <- cor(earthquake_data[, c("Latitude", "Longitude", "Depth", "Magnitude")], use = "complete.obs")
+corrplot::corrplot(cor_matrix, method = "color")
+```
+
+Feature Engineering for Earthquake Dataset
+```{r}
+# Add a column for the total seismic stations
+earthquake_data$Total.Seismic.Stations <- earthquake_data$Depth.Seismic.Stations + earthquake_data$Magnitude.Seismic.Stations
+
+# Explore the updated Dataset
+cat("Updated Earthquake Dataset Overview:\n")
+str(earthquake_data)
+cat("\nSample Data:\n")
+head(earthquake_data)
+```
+
+Machine Learning Models for Earthquake Prediction
+```{r}
+# Install and load necessary packages if not already installed
+if (!require("caret")) install.packages("caret")
+
+# Load necessary packages
+library(caret)
+```
+```{r}
+# Select relevant features for modeling
+selected_features <- c("Latitude", "Longitude", "Depth", "Magnitude", "Total.Seismic.Stations")
+# Create a subset of data with selected features
+earthquake_subset <- earthquake_data[!is.na(earthquake_data$Magnitude) & !is.na(earthquake_data$Depth), selected_features]
+```
+
+```{r}
+# Split the data into training and testing sets
+set.seed(123)
+train_index <- createDataPartition(earthquake_subset$Magnitude, p = 0.8, list = FALSE)
+train_data <- earthquake_subset[train_index, ]
+test_data <- earthquake_subset[-train_index, ]
+```
+
+```{r}
+# Ensure there are no missing values in the training and testing datasets
+train_data <- na.omit(train_data)
+test_data <- na.omit(test_data)
+
+# Train a linear regression model
+earthquake_model <- lm(Magnitude ~ ., data = train_data)
+
+# Make predictions on the test set
+predictions <- predict(earthquake_model, newdata = test_data)
+
+# Evaluate the model
+accuracy <- sqrt(mean((predictions - test_data$Magnitude)^2, na.rm = TRUE))
+
+# Print the model accuracy
+cat("Model Accuracy:", accuracy, "\n")
+
+```
+
+### Part II Hurricane
+```{r}
+# Load necessary libraries
+library(dplyr)
+
+# Read the CSV datasets into data frames
+data1 <- read.csv("/Users/aditi/Documents/DisasterGaurd/archive/atlantic.csv")
+data2 <- read.csv("/Users/aditi/Documents/DisasterGaurd/archive/pacific.csv")
+
+# Merge the datasets
+hurricane_data <- bind_rows(data1, data2)
+
+# View the first few rows of the merged dataset
+head(hurricane_data)
+```
+Data preprocessing
+```{r}
+# Check for missing values
+missing_values <- colSums(is.na(hurricane_data))
+
+# Display missing values
+print(missing_values)
+```
+```{r}
+# Convert Latitude and Longitude to numeric values
+hurricane_data$Latitude <- as.numeric(sub("N|S", "", hurricane_data$Latitude))
+hurricane_data$Longitude <- as.numeric(sub("E|W", "", hurricane_data$Longitude))
+
+# Extract year and month from the Date column
+hurricane_data$Year <- as.integer(substr(hurricane_data$Date, 1, 4))
+hurricane_data$Month <- as.integer(substr(hurricane_data$Date, 5, 6))
+
+# View the updated dataset
+head(hurricane_data)
+```
+EDA and viz
+```{r}
+# Summary statistics
+summary(hurricane_data)
+```
+```{r}
+# Plotting Maximum Wind distribution
+hist(hurricane_data$Maximum.Wind, main = "Maximum Wind Distribution", xlab = "Maximum Wind")
+```
+```{r}
+# Scatter plot of Maximum Wind vs. Latitude
+plot(hurricane_data$Latitude, hurricane_data$Maximum.Wind, 
+     main = "Maximum Wind vs. Latitude", xlab = "Latitude", ylab = "Maximum Wind")
+```
+```{r}
+# Scatter plot of Maximum Wind vs. Longitude
+plot(hurricane_data$Longitude, hurricane_data$Maximum.Wind, main = "Maximum Wind vs. Longitude", xlab = "Longitude", ylab = "Maximum Wind")
+```
+```{r}
+# Bar plot of Event frequency
+barplot(table(hurricane_data$Event), main = "Event Frequency", xlab = "Event", ylab = "Frequency")
+```
+```{r}
+# Boxplot of Maximum Wind by Event
+boxplot(Maximum.Wind ~ Event, data = hurricane_data, 
+        main = "Maximum Wind by Event", xlab = "Event", ylab = "Maximum Wind")
+```
+Ml model
+```{r}
+# Calculate the distance to the coast (assuming Longitude > 0 is on the west coast)
+hurricane_data$Distance_to_Coast <- ifelse(hurricane_data$Longitude > 0, hurricane_data$Longitude, 360 + hurricane_data$Longitude)
+
+# Create a binary variable indicating whether the hurricane occurred in the Northern Hemisphere
+hurricane_data$Northern_Hemisphere <- ifelse(hurricane_data$Latitude > 0, 1, 0)
+
+# View the updated dataset
+head(hurricane_data)
+
+```
+```{r}
+# Split the data into training and testing sets
+set.seed(123)
+sample_size <- floor(0.8 * nrow(hurricane_data))
+
+train_index <- sample(seq_len(nrow(hurricane_data)), size = sample_size)
+train_data <- hurricane_data[train_index, ]
+test_data <- hurricane_data[-train_index, ]
+```
+
+```{r}
+# Install and load the required package
+library(randomForest)
+```
+
+```{r}
+# Remove the 'ID' column from both training and test datasets
+train_data <- train_data[, !(names(train_data) %in% c("ID"))]
+test_data <- test_data[, !(names(test_data) %in% c("ID"))]
+
+# Train a random forest model
+hurricane_model <- randomForest(Maximum.Wind ~ ., data = train_data)
+
+# Make predictions on the test set
+predictions <- predict(hurricane_model, newdata = test_data)
+```
+
+```{r}
+# Evaluate the model with additional metrics
+mae <- mean(abs(predictions - test_data$Maximum.Wind))
+mse <- mean((predictions - test_data$Maximum.Wind)^2)
+rsquared <- 1 - (sum((test_data$Maximum.Wind - predictions)^2) / sum((test_data$Maximum.Wind - mean(test_data$Maximum.Wind))^2))
+
+cat("Mean Absolute Error:", mae, "\n")
+cat("Mean Squared Error:", mse, "\n")
+cat("R-squared:", rsquared, "\n")
+```
+
+The metrics suggest that the random forest model performs reasonably well in predicting maximum wind speed.
+
+### Part III Forest Fire
+
+Data loading and preprocessing
+```{r}
+# Load required libraries
+library(tidyverse)
+```
+
+```{r}
+# Load the dataset
+forestfire_data <- read.csv("/Users/aditi/Documents/DisasterGaurd/forestfires.csv")
+
+# Explore the structure of the dataset
+str(forestfire_data)
+```
+
+```{r}
+head(forestfire_data)
+```
+```{r}
+# Check for missing values
+summary(is.na(forestfire_data))
+```
+```{r}
+# Convert categorical variables to factors
+forestfire_data$month <- as.factor(forestfire_data$month)
+forestfire_data$day <- as.factor(forestfire_data$day)
+# Check the distribution of the target variable
+summary(forestfire_data$area)
+```
+
+The summary of the area variable indicates that it has a highly skewed distribution. To address this, we'll log-transform the target variable.
+
+```{r}
+# Log-transform the target variable (if needed)
+forestfire_data$log_area <- log1p(forestfire_data$area)
+```
+
+```{r}
+# Load necessary libraries for EDA
+library(ggplot2)
+```
+
+```{r}
+# Binary Classification (Fire or No Fire)
+# Create a binary variable indicating the presence of fire
+forestfire_data$fire_occurrence <- ifelse(forestfire_data$area > 0, 1, 0)
+```
+
+```{r}
+# Distribution of the target variable
+ggplot(forestfire_data, aes(x = factor(fire_occurrence), fill = factor(fire_occurrence))) +
+  geom_bar() +
+  labs(title = "Distribution of Fire Occurrence (1: Fire, 0: No Fire)",
+       x = "Fire Occurrence",
+       y = "Count") +
+  theme_minimal()
+```
+
+```{r}
+# Summary statistics of the area variable
+summary(forestfire_data$area)
+```
+
+```{r}
+# Distribution of the area variable (excluding zeros for better visualization)
+ggplot(forestfire_data[forestfire_data$area > 0, ], aes(x = area)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") +
+  labs(title = "Distribution of Burned Area (excluding zeros)",
+       x = "Burned Area",
+       y = "Count") +
+  theme_minimal()
+```
+```{r}
+# Density plot of the burned area (log-transformed)
+ggplot(forestfire_data, aes(x = log1p(area))) +
+  geom_density(fill = "blue", color = "black") +
+  labs(title = "Density Plot of Log-Transformed Burned Area",
+       x = "Log-Transformed Burned Area",
+       y = "Density") +
+  theme_minimal()
+```
+```{r}
+# Scatter plot of temperature and log-transformed burned area
+ggplot(forestfire_data, aes(x = temp, y = log_area)) +
+  geom_point(color = "blue", alpha = 0.5) +
+  labs(title = "Scatter Plot of Temperature and Log-Transformed Burned Area",
+       x = "Temperature (Celsius)",
+       y = "Log-Transformed Burned Area") +
+  theme_minimal()
+```
+```{r}
+# Scatter plot of wind speed and log-transformed burned area
+ggplot(forestfire_data, aes(x = wind, y = log_area)) +
+  geom_point(color = "green", alpha = 0.5) +
+  labs(title = "Scatter Plot of Wind Speed and Log-Transformed Burned Area",
+       x = "Wind Speed (km/h)",
+       y = "Log-Transformed Burned Area") +
+  theme_minimal()
+```
+```{r}
+# Scatter plot of relative humidity and log-transformed burned area
+ggplot(forestfire_data, aes(x = RH, y = log_area)) +
+  geom_point(color = "orange", alpha = 0.5) +
+  labs(title = "Scatter Plot of Relative Humidity and Log-Transformed Burned Area",
+       x = "Relative Humidity (%)",
+       y = "Log-Transformed Burned Area") +
+  theme_minimal()
+```
+ML model
+```{r}
+# Create a binary variable for fire occurrence
+forestfire_data$fire_occurrence <- ifelse(forestfire_data$area > 0, 1, 0)
+```
+
+```{r}
+# Split the data into training and testing sets
+set.seed(123)
+sample_size <- floor(0.8 * nrow(forestfire_data))
+train_index <- sample(seq_len(nrow(forestfire_data)), size = sample_size)
+train_data <- forestfire_data[train_index, ]
+test_data <- forestfire_data[-train_index, ]
+```
+
+```{r}
+# Ensure consistent factor levels for the 'month' variable
+forestfire_data$month <- factor(forestfire_data$month)
+
+# Ensure consistent factor levels in both train and test datasets
+train_data$month <- factor(train_data$month)
+test_data$month <- factor(test_data$month, levels = levels(train_data$month))
+```
+
+
+```{r}
+# Logistic Regression for Fire Occurrence
+fire_occurrence_model <- glm(fire_occurrence ~ X + Y + month + day + FFMC + DMC + DC + ISI + temp + RH + wind + rain, 
+                              data = train_data, family = "binomial")
+
+# Make predictions on the test set
+fire_occurrence_predictions <- predict(fire_occurrence_model, newdata = test_data, type = "response")
+
+# Binary Classification Evaluation
+fire_occurrence_actual <- test_data$fire_occurrence
+
+# Convert predicted probabilities to binary predictions
+fire_occurrence_predictions_binary <- ifelse(fire_occurrence_predictions > 0.5, 1, 0)
+
+# Confusion Matrix
+conf_matrix <- table(Actual = fire_occurrence_actual, Predicted = fire_occurrence_predictions_binary)
+print("Confusion Matrix:")
+print(conf_matrix)
+
+# Calculate Accuracy
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+print(paste("Accuracy:", accuracy))
+
+# Calculate Precision
+precision <- conf_matrix[2, 2] / sum(conf_matrix[, 2])
+print(paste("Precision:", precision))
+
+# Calculate Recall
+recall <- conf_matrix[2, 2] / sum(conf_matrix[2, ])
+print(paste("Recall:", recall))
+
+# Calculate F1 Score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+print(paste("F1 Score:", f1_score))
+```
+```{r}
+# Load required library
+library(randomForest)
+
+# Random Forest for Fire Occurrence (Classification)
+rf_classification_model <- randomForest(fire_occurrence ~ ., data = train_data, ntree = 100)
+
+# Make predictions on the test set
+rf_classification_predictions <- predict(rf_classification_model, newdata = test_data, type = "response")
+
+# Binary Classification Evaluation
+conf_matrix_rf <- table(Actual = test_data$fire_occurrence, Predicted = as.numeric(rf_classification_predictions > 0.5))
+print("Confusion Matrix:")
+print(conf_matrix_rf)
+
+# Calculate Accuracy
+accuracy_rf <- sum(diag(conf_matrix_rf)) / sum(conf_matrix_rf)
+print(paste("Accuracy:", accuracy_rf))
+
+# Calculate Precision
+precision_rf <- conf_matrix_rf[2, 2] / sum(conf_matrix_rf[, 2])
+print(paste("Precision:", precision_rf))
+
+# Calculate Recall
+recall_rf <- conf_matrix_rf[2, 2] / sum(conf_matrix_rf[2, ])
+print(paste("Recall:", recall_rf))
+
+# Calculate F1 Score
+f1_score_rf <- 2 * (precision_rf * recall_rf) / (precision_rf + recall_rf)
+print(paste("F1 Score:", f1_score_rf))
+
+```
+
+
